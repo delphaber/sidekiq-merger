@@ -46,10 +46,10 @@ class Sidekiq::Merger::Redis
     msg_json = msg.to_json
     redis do |conn|
       conn.multi do |multi|
-        multi.sadd(merges_key, key)
+        multi.sadd(merges_key, [key])
         multi.setnx(time_key(key), execution_time.to_i)
         multi.lpush(msg_key(key), msg_json)
-        multi.sadd(unique_msg_key(key), msg_json)
+        multi.sadd(unique_msg_key(key), [msg_json])
       end
     end
   end
