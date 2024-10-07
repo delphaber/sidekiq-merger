@@ -45,11 +45,11 @@ class Sidekiq::Merger::Redis
   def push_message(key, msg, execution_time)
     msg_json = msg.to_json
     redis do |conn|
-      conn.multi do
-        conn.sadd(merges_key, key)
-        conn.setnx(time_key(key), execution_time.to_i)
-        conn.lpush(msg_key(key), msg_json)
-        conn.sadd(unique_msg_key(key), msg_json)
+      conn.multi do |multi|
+        multi.sadd(merges_key, key)
+        multi.setnx(time_key(key), execution_time.to_i)
+        multi.lpush(msg_key(key), msg_json)
+        multi.sadd(unique_msg_key(key), msg_json)
       end
     end
   end
@@ -57,9 +57,9 @@ class Sidekiq::Merger::Redis
   def delete_message(key, msg)
     msg_json = msg.to_json
     redis do |conn|
-      conn.multi do
-        conn.srem(unique_msg_key(key), msg_json)
-        conn.lrem(msg_key(key), 0, msg_json)
+      conn.multi do |multi|
+        multi.srem(unique_msg_key(key), msg_json)
+        multi.lrem(msg_key(key), 0, msg_json)
       end
     end
   end
@@ -97,12 +97,12 @@ class Sidekiq::Merger::Redis
   def pluck_merge(key)
     msgs = []
     redis do |conn|
-      conn.multi do
-        msgs = conn.lrange(msg_key(key), 0, -1)
-        conn.del(unique_msg_key(key))
-        conn.del(msg_key(key))
-        conn.del(time_key(key))
-        conn.srem(merges_key, key)
+      conn.multi do |multi|
+        msgs = multi.lrange(msg_key(key), 0, -1)
+        multi.del(unique_msg_key(key))
+        multi.del(msg_key(key))
+        multi.del(time_key(key))
+        multi.srem(merges_key, key)
       end
     end
     extract_future_value(msgs).map { |msg| JSON.parse(msg) }
@@ -110,12 +110,12 @@ class Sidekiq::Merger::Redis
 
   def delete_merge(key)
     redis do |conn|
-      conn.multi do
-        conn.del(unique_msg_key(key))
-        conn.del(msg_key(key))
-        conn.del(time_key(key))
-        conn.del(lock_key(key))
-        conn.srem(merges_key, key)
+      conn.multi do |multi|
+        multi.del(unique_msg_key(key))
+        multi.del(msg_key(key))
+        multi.del(time_key(key))
+        multi.del(lock_key(key))
+        multi.srem(merges_key, key)
       end
     end
   end
